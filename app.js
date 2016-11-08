@@ -45,22 +45,21 @@ app.use(rawBody);
 app.use(errorHandler);
 
 app.listen(process.env.PORT || 3000, () => {
-  console.log("app is listening on port: " + (process.env.PORT || 3000));
+  console.log("INFO: app is listening on port: " + (process.env.PORT || 3000));
 });
 
 app.post("/webhook_callback", function(req, res) {
 
-  // Acknowledge we received and processed notification to avoid getting sent the same event again
-  res.status(200).end();
 
   if (!APP_ID || !APP_SECRET || !WEBHOOK_SECRET) {
-  	console.log("Missing variables APP_ID, APP_SECRET or WEBHOOK_SECRET from environment");
+  	console.log("ERROR: Missing variables APP_ID, APP_SECRET or WEBHOOK_SECRET from environment");
   	return;
   }
 
   if (!verifySender(req.headers, req.rawBody)) {
-      console.log("Cannot verify caller ! -------------");
+      console.log("ERROR: Cannot verify caller! -------------");
       console.log(req.rawBody.toString());
+      res.status(200).end();
       return;
   }
 
@@ -68,14 +67,24 @@ app.post("/webhook_callback", function(req, res) {
   var eventType = body.type;
   if (eventType === "verification") {
       handleVerificationRequest(res, body.challenge);
+      console.log("INFO: Verification request processed");
       return;
   }
 
-  if(eventType !== "message-annotation-added" || body.userId === APP_ID) {
-    if (body.userId === APP_ID)
-      console.log("Skipping our own message Body: " + JSON.stringify(body));
+  // Acknowledge we received and processed notification to avoid getting sent the same event again
+  res.status(200).end();
+
+
+  if (eventType !== "message-annotation-added") {
+    console.log("INFO: Skipping unwanted eventType: " + eventType);
     return;
   }
+
+  if (body.userId === APP_ID) {
+    console.log("INFO: Skipping our own message Body: " + JSON.stringify(body));
+    return;
+  }
+
 
   const spaceId = body.spaceId;
 
@@ -90,13 +99,14 @@ app.post("/webhook_callback", function(req, res) {
 
   if (annotationType === "message-nlp-docSentiment") {
     var docSentiment = annotationPayload.docSentiment;
-    msgTitle = annotationType;
-    if (docSentiment.type === "negative" && docSentiment.score < -80.0) {
+    msgTitle = "Sentiment Analysis";
+    if (docSentiment.type === "negative" && docSentiment.score < -0.50) {
       msgText = " is being negative (" + docSentiment.score + ")";
-    } else if (docSentiment.type === "positive" && docSentiment.score > 80.0) {
+    } else if (docSentiment.type === "positive" && docSentiment.score > 0.50) {
       msgText = " seems very happy ! (" + docSentiment.score + ")";
     } else {
       // If the person is neither happy nor sad then assume neutral and just return
+      console.log("DEBUG: Neutral");
       return;
     }
   } else {
@@ -117,15 +127,15 @@ app.post("/webhook_callback", function(req, res) {
     }
   };
 
-  request(authenticationOptions, function(err, response, body) {
+  request(authenticationOptions, function(err, response, authenticationBody) {
 
     // If successful authentication, a 200 response code is returned
     if (response.statusCode !== 200) {
         // if our app can't authenticate then it must have been disabled.  Just return
+        console.log("DEBUG: App can't authenticate");
         return;
     }
-    const accessToken = JSON.parse(body).access_token;
-    res.status(200);
+    const accessToken = JSON.parse(authenticationBody).access_token;
 
     const GraphQLOptions = {
         "url": `${WWS_URL}/graphql`,
@@ -151,7 +161,7 @@ app.post("/webhook_callback", function(req, res) {
           msgText = memberName + msgText;
 
       } else {
-          console.log("Error retrieving /user/info err " + err + " status:" + response.statusCode);
+          console.log("ERROR: Can't retrieve " + GraphQLOptions.body + " status:" + response.statusCode);
           return;
       }
 
@@ -186,13 +196,16 @@ app.post("/webhook_callback", function(req, res) {
         appMessage.annotations[0].text = msgText;
         sendMessageOptions.body = JSON.stringify(appMessage);
 
-        request(sendMessageOptions, function(err, response, body) {
+        request(sendMessageOptions, function(err, response, sendMessageBody) {
 
           if (err || response.statusCode !== 201) {
-              console.log("ERROR Posting to Space with http code: " + response.statusCode + " and error " + err);
+              console.log("ERROR: Posting to " + sendMessageOptions.url + "resulted on http status code: " + response.statusCode + " and error " + err);
           }
 
         });
+      }
+      else {
+        console.log("DEBUG: Skipping sending a message of analysis of our own message " + JSON.stringify(body));
       }
     });
   });
@@ -231,8 +244,6 @@ function handleVerificationRequest(response, challenge) {
         "Content-Type": "application/json; charset=utf-8",
         "X-OUTBOUND-TOKEN": responseToken
     });
-
-    console.log("Verification request processed");
 
     response.end(responseBodyString);
 }
