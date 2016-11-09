@@ -106,7 +106,6 @@ app.post("/webhook_callback", function(req, res) {
       msgText = " seems very happy ! (" + docSentiment.score + ")";
     } else {
       // If the person is neither happy nor sad then assume neutral and just return
-      console.log("DEBUG: Neutral");
       return;
     }
   } else {
@@ -132,7 +131,7 @@ app.post("/webhook_callback", function(req, res) {
     // If successful authentication, a 200 response code is returned
     if (response.statusCode !== 200) {
         // if our app can't authenticate then it must have been disabled.  Just return
-        console.log("DEBUG: App can't authenticate");
+        console.log("ERROR: App can't authenticate");
         return;
     }
     const accessToken = JSON.parse(authenticationBody).access_token;
@@ -205,7 +204,7 @@ app.post("/webhook_callback", function(req, res) {
         });
       }
       else {
-        console.log("DEBUG: Skipping sending a message of analysis of our own message " + JSON.stringify(body));
+        console.log("INFO: Skipping sending a message of analysis of our own message " + JSON.stringify(body));
       }
     });
   });
