@@ -150,6 +150,8 @@ app.post("/webhook_callback", function(req, res) {
     GraphQLOptions.headers.jwt = accessToken;
     GraphQLOptions.body = "{ message (id: \"" + messageId + "\") {createdBy { displayName id}}}";
 
+    // Request the id of the owner who created the message for which this analysis was supplied to
+    // Avoid endless loop of analysis :-)
     request(GraphQLOptions, function(err, response, graphqlbody) {
 
       if (!err && response.statusCode === 200) {
@@ -165,7 +167,7 @@ app.post("/webhook_callback", function(req, res) {
       }
 
       // Avoid endless loop of analysis :-)
-			if (memberId !== APP_ID) {
+      if (memberId !== APP_ID) {
         const appMessage = {
             "type": "appMessage",
             "version": "1",
