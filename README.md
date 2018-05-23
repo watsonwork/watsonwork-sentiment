@@ -6,7 +6,7 @@
 1. How to listen to events in a Watson Work Space, specifically it knows how to process message annotation added events and thus requires that apps registered are enabled with those events.
 2. How to authenticate using the appID + secret to obtain an access token
 3. How to call graphQL api to obtain name and email of the user who wrote the message being analyzed
-4. How to interpret the analysis based on sentiment using a score of 80% on either happyness or sadness
+4. How to interpret the analysis based on sentiment using a score of 80% on either happiness or sadness
 5. How to write a message back into the conversation announcing the sentiment of the person who wrote the message that was analyzed
 
 ### To utilize with BlueMix:
